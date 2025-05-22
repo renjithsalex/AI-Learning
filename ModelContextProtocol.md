@@ -35,14 +35,80 @@ MCP transforms AI assistants from simple question-answering tools into intellige
 ## Table of Contents
 
 1. [Introduction](#introduction)
+   - [Key Benefits](#key-benefits)
+   - [Problem Statement](#problem-statement)
+   - [Technical Overview](#technical-overview)
+
 2. [Core Concepts](#core-concepts)
+   - [Context Window](#context-window)
+   - [Token Management](#token-management)
+     - [LLM-based Token Management Strategies](#llm-based-token-management-strategies)
+   - [Memory Layers](#memory-layers)
+     - [MCP Server Memory Implementation](#mcp-server-memory-implementation)
+
 3. [Protocol Specification](#protocol-specification)
+   - [Components](#components)
+   - [Interfaces](#interfaces)
+   - [Data Flow](#data-flow)
+   - [Standard Behaviors](#standard-behaviors)
+
 4. [Implementation Guide](#implementation-guide)
+   - [Setting Up a Context Manager](#setting-up-a-context-manager)
+   - [Managing Context](#managing-context)
+   - [Implementing Memory Stores](#implementing-memory-stores)
+   - [Handling Token Limitations](#handling-token-limitations)
+   - [Serverless Implementation](#serverless-implementation)
+
 5. [Best Practices](#best-practices)
+   - [Context Prioritization](#context-prioritization)
+   - [Memory Management Strategies](#memory-management-strategies)
+   - [Token Efficiency](#token-efficiency)
+   - [Performance Optimization](#performance-optimization)
+   - [Security Considerations](#security-considerations)
+
 6. [API Reference](#api-reference)
+   - [ContextManager Class](#contextmanager-class)
+   - [MemoryStore Class](#memorystore-class)
+   - [TokenCounter Class](#tokencounter-class)
+   - [ToolManager Class](#toolmanager-class)
+
 7. [Examples](#examples)
+   - [Basic Implementation](#basic-implementation)
+   - [Advanced Usage with Memory Layers](#advanced-usage-with-memory-layers)
+   - [Python Implementation](#python-implementation)
+   - [Enterprise Integration Patterns](#enterprise-integration-patterns)
+
 8. [Troubleshooting](#troubleshooting)
+   - [Common Issues](#common-issues)
+   - [Monitoring and Debugging](#monitoring-and-debugging)
+   - [Error Handling](#error-handling)
+
 9. [Tool Integration with MCP](#tool-integration-with-mcp)
+   - [Native MCP Tool Integration](#native-mcp-tool-integration)
+   - [External Tool Integration](#external-tool-integration)
+   - [AWS Integration Best Practices](#aws-integration-best-practices)
+   - [Serverless MCP Architecture on AWS](#serverless-mcp-architecture-on-aws)
+
+10. [MCP Server Query Processing Flow](#mcp-server-query-processing-flow)
+    - [End-to-End Query Processing Example](#end-to-end-query-processing-example)
+    - [Comparison: With MCP vs. Without MCP](#comparison-with-mcp-vs-without-mcp)
+    - [Python Implementation Note](#python-implementation-note)
+
+11. [User Session & Profile Management](#user-session--profile-management)
+    - [Session Context Storage](#session-context-storage)
+    - [User Profile Persistence](#user-profile-persistence)
+    - [Multi-Session Management](#multi-session-management)
+    - [Privacy and Compliance](#privacy-and-compliance)
+
+12. [Conclusion](#conclusion)
+    - [Future Directions](#future-directions)
+    - [Community and Support](#community-and-support)
+
+13. [Appendix](#appendix)
+    - [Compatibility Table](#compatibility-table)
+    - [Further Reading](#further-reading)
+    - [Glossary of Terms](#glossary-of-terms)
+    - [Change Log](#change-log)
 
 ## Introduction
 
@@ -54,6 +120,26 @@ LLMs rely on context to generate relevant responses. As model capabilities expan
 - **Optimization**: Efficient token usage and memory management
 - **Flexibility**: Adaptable to different context strategies and model capabilities
 - **Interoperability**: Easy integration with various LLM frameworks
+
+### Problem Statement
+
+As AI systems become more integrated into business processes, the limitations of current context handling methods are becoming apparent. Key issues include:
+
+- Inability to remember past interactions across sessions
+- Difficulty in managing long context windows with relevant information
+- Lack of integration with external data sources and tools
+- High operational costs due to inefficient token usage
+
+### Technical Overview
+
+The Model Context Protocol (MCP) provides a standardized framework for managing context in AI applications. It defines:
+
+- How context is represented and serialized
+- Methods for efficient token management and optimization
+- A protocol for integrating external tools and data sources
+- Standards for memory management across different layers (short-term, working, long-term)
+
+Developers and organizations can implement MCP to enable more intelligent and context-aware AI systems, improving both user experience and operational efficiency.
 
 ## Core Concepts
 
@@ -755,6 +841,23 @@ enum MemoryType {
 }
 ```
 
+### Data Flow
+
+1. **Input Reception**: The system receives a new input (e.g., user query, command).
+2. **Context Retrieval**: Relevant context is retrieved from memory layers based on the input.
+3. **Context Optimization**: The retrieved context is optimized for token efficiency and relevance.
+4. **Tool Invocation**: If needed, external tools are invoked to fetch additional data or perform actions.
+5. **Response Generation**: The AI model generates a response based on the optimized context.
+6. **Memory Update**: The system updates memory layers with new information from the interaction.
+7. **Output Delivery**: The final response is delivered to the user or calling system.
+
+### Standard Behaviors
+
+- **Contextual Understanding**: The system should demonstrate an understanding of context from previous interactions.
+- **Relevance Maintenance**: Only relevant information should be kept in the active context.
+- **Token Efficiency**: The system should minimize token usage while maximizing informational content.
+- **Memory Persistence**: Important information should be stored in memory for future reference, according to its relevance and priority.
+
 ## Implementation Guide
 
 ### Setting Up a Context Manager
@@ -789,6 +892,62 @@ enum MemoryType {
    }
    ```
 
+### Implementing Memory Stores
+
+1. Choose appropriate storage technology for each memory layer:
+   - Short-term memory: In-memory store (e.g., Redis)
+   - Working memory: Key-value or document store (e.g., DynamoDB, MongoDB)
+   - Long-term memory: Vector database (e.g., Pinecone, Weaviate)
+
+2. Implement CRUD operations for each memory type:
+   ```javascript
+   // Example for short-term memory using Redis
+   async function storeShortTerm(key, value) {
+     const jsonValue = typeof value === 'string' ? value : JSON.stringify(value);
+     await redisClient.set(`st:${key}`, jsonValue, 'EX', shortTermTTL);
+   }
+   
+   async function getShortTerm(key) {
+     const data = await redisClient.get(`st:${key}`);
+     return data ? JSON.parse(data) : null;
+   }
+   ```
+
+### Handling Token Limitations
+
+1. Monitor token usage during context management:
+   ```javascript
+   const currentTokenCount = countTokens(context.join('\n'));
+   ```
+
+2. Implement strategies for when token limits are approached:
+   - Summarization of existing context
+   - Pruning of less relevant context
+   - Compression of data sent to the model
+
+3. Example token management workflow:
+   ```javascript
+   async function manageTokenLimit(context, maxTokens) {
+     const currentTokenCount = countTokens(context.join('\n'));
+     
+     if (currentTokenCount > maxTokens) {
+       // Summarize or prune context as needed
+       context = await compressContextWithLlm(context, maxTokens);
+     }
+     
+     return context;
+   }
+   ```
+
+### Serverless Implementation
+
+For serverless environments, consider these guidelines:
+
+- Use managed services for memory layers (e.g., DynamoDB, S3, ElastiCache)
+- Implement the MCP server as a set of serverless functions (e.g., AWS Lambda)
+- Use API Gateway or similar to expose the MCP server API
+- Ensure proper IAM roles and permissions are set for AWS service access
+
 ## Best Practices
 
 ### Context Prioritization
@@ -810,6 +969,18 @@ enum MemoryType {
 - Use compression techniques for lengthy content
 - Implement token-aware truncation
 
+### Performance Optimization
+
+- Monitor and optimize query performance for memory operations
+- Use batch processing for memory writes where possible
+- Optimize data models for efficient querying and storage
+
+### Security Considerations
+
+- Secure sensitive data in memory (e.g., personal information, credentials)
+- Use encryption for data at rest and in transit
+- Implement proper access controls and authentication mechanisms
+
 ## API Reference
 
 ### ContextManager Class
@@ -830,6 +1001,23 @@ enum MemoryType {
 | retrieve | key: string, type: MemoryType | any | Gets a value from specified memory type |
 | forget | key: string, type: MemoryType | void | Removes a value from memory |
 | summarize | type: MemoryType | string | Creates a summary of specified memory type |
+
+### TokenCounter Class
+
+| Method | Parameters | Return Type | Description |
+|--------|------------|------------|-------------|
+| count | text: string | number | Returns the token count of the given text |
+| estimate | content: any | number | Estimates the token count for given content |
+| adjustForModel | tokenCount: number, modelName: string | number | Adjusts token count based on model-specific factors |
+
+### ToolManager Class
+
+| Method | Parameters | Return Type | Description |
+|--------|------------|------------|-------------|
+| registerTool | toolConfig: ToolConfig | void | Registers a new tool with the MCP server |
+| executeTool | toolName: string, params: any | any | Executes a registered tool with given parameters |
+| listTools | none | ToolConfig[] | Returns a list of registered tools |
+| removeTool | toolName: string | void | Unregisters a tool from the MCP server |
 
 ## Examples
 
@@ -868,6 +1056,167 @@ const userPreference = memoryStore.retrieve("user_preference", MemoryType.LONG_T
 contextManager.addToContext(userPreference, Priority.MEDIUM);
 ```
 
+### Python Implementation
+
+The Model Context Protocol can be implemented in Python, which offers advantages for data science and machine learning workflows. Here's how the key MCP server components would be implemented in Python:
+
+```python
+# MCP Server Python Implementation - Example for Query Processing
+
+import os
+import json
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+import redis
+import boto3
+import pinecone
+from openai import OpenAI
+from enum import Enum
+
+class MemoryType(Enum):
+    SHORT_TERM = "short_term"
+    WORKING = "working"
+    LONG_TERM = "long_term"
+
+class Priority(Enum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    CRITICAL = 4
+
+@dataclass
+class ContextItem:
+    content: str
+    priority: Priority
+    tokens: int
+
+class MCPServerPython:
+    def __init__(self, config: Dict[str, Any]):
+        # Initialize Redis for short-term memory
+        self.redis_client = redis.Redis(
+            host=config['redis']['host'],
+            port=config['redis']['port'],
+            password=config['redis']['password'],
+            decode_responses=True
+        )
+        
+        # Initialize DynamoDB for working memory
+        self.dynamodb = boto3.resource(
+            'dynamodb',
+            region_name=config['aws']['region'],
+            aws_access_key_id=config['aws']['access_key'],
+            aws_secret_access_key=config['aws']['secret_key']
+        )
+        self.working_memory_table = self.dynamodb.Table('MCPWorkingMemory')
+        
+        # Initialize Pinecone for long-term memory
+        pinecone.init(
+            api_key=config['pinecone']['api_key'],
+            environment=config['pinecone']['environment']
+        )
+        self.vector_index = pinecone.Index(config['pinecone']['index_name'])
+        
+        # Initialize OpenAI client
+        self.llm_client = OpenAI(api_key=config['openai']['api_key'])
+        
+        # Configure token counter
+        self.token_counter = TokenCounter();
+        
+        # TTL configurations
+        self.short_term_ttl = config.get('ttl', {}).get('short_term', 3600)  # 1 hour
+        self.working_memory_ttl = config.get('ttl', {}).get('working_memory', 86400)  # 1 day
+    
+    async def process_query(self, user_id: str, query: str, session_id: str) -> Dict[str, Any]:
+        """Process a user query through the MCP pipeline."""
+        # 1. Retrieve context from memory layers
+        conversation_history = await self.retrieve_memory(
+            f"conversation:{session_id}", 
+            MemoryType.SHORT_TERM
+        ) or []
+        
+        user_preferences = await self.retrieve_memory(
+            f"user:{user_id}:preferences",
+            MemoryType.WORKING
+        ) or {};
+        
+        relevant_info = await self.search_long_term_memory(query, 5);
+        
+        # 2. Assemble context with priorities
+        context = [];
+        
+        # System instructions (highest priority)
+        system_prompt = self.get_system_prompt(user_preferences);
+        context.append(ContextItem(
+            content=system_prompt,
+            priority=Priority.CRITICAL,
+            tokens=self.token_counter.count(system_prompt)
+        ));
+        
+        # Conversation history (high priority)
+        conv_formatted = self.format_conversation(conversation_history);
+        context.append(ContextItem(
+            content=conv_formatted,
+            priority=Priority.HIGH,
+            tokens=self.token_counter.count(conv_formatted)
+        ));
+        
+        # Relevant information from long-term memory (medium priority)
+        for info in relevant_info:
+            context.append(ContextItem(
+                content=f"Relevant previous information: {info['data']['text']}",
+                priority=Priority.MEDIUM,
+                tokens=self.token_counter.count(f"Relevant previous information: {info['data']['text']}")
+            ));
+        
+        # Current query (high priority)
+        context.append(ContextItem(
+            content=f"User: {query}",
+            priority: Priority.HIGH,
+            tokens=self.token_counter.count(f"User: {query}")
+        ));
+        
+        # 3. Optimize context to fit token limits
+        optimized_context = await this.contextManager.optimize(context, {
+            'max_tokens': 6000,
+            'model': user_preferences.get('preferred_model', 'gpt-4')
+        });
+        
+        # 4. Detect and execute tools if needed
+        tool_results = await this.detect_and_execute_tools(query, user_preferences);
+        
+        # Add tool results to context if any
+        if (Object.keys(toolResults).length > 0) {
+          const toolResultsStr = JSON.stringify(toolResults, null, 2);
+          optimizedContext.push(ContextItem({
+            content: `Tool Results: ${toolResultsStr}`,
+            priority: Priority.HIGH,
+            tokens: this.tokenCounter.count(`Tool Results: ${toolResultsStr}`)
+          }));
+        }
+        
+        # 5. Generate response using LLM
+        const llmResponse = await this.llm.complete({
+          prompt: this.contextManager.formatForLLM(optimizedContext),
+          max_tokens: 2000,
+          model: userPreferences.preferredModel || "gpt-4"
+        });
+        
+        # 6. Update memory layers
+        await this.update_memory_layers(
+          user_id, session_id, query, llm_response, conversation_history
+        );
+        
+        # 7. Prepare and return response
+        return {
+            'response': llmResponse,
+            'sources': [{'title': info['data'].get('topic', 'Previous Conversation'), 
+                        'relevance': info['score']} 
+                        for info in relevantInfo]
+        };
+        
+    # ... Additional methods would be implemented here
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -891,6 +1240,12 @@ Monitor these metrics for optimal context management:
 - Context retention rate
 - Relevance scores of included content
 - Response quality correlation with context strategies
+
+### Error Handling
+
+- Implement try-catch blocks around critical operations (e.g., network requests, database access)
+- Log errors with sufficient context to diagnose issues
+- Implement fallback mechanisms where appropriate (e.g., default responses, retries)
 
 ## Tool Integration with MCP
 
@@ -1148,11 +1503,12 @@ Below is a step-by-step walkthrough of how an MCP server processes a complex use
    
    // Add tool results to context
    if (Object.keys(toolResults).length > 0) {
-     optimizedContext.push({
-       content: `Tool Results: ${JSON.stringify(toolResults, null, 2)}`,
+     const toolResultsStr = JSON.stringify(toolResults, null, 2);
+     optimizedContext.push(ContextItem({
+       content: `Tool Results: ${toolResultsStr}`,
        priority: Priority.HIGH,
-       tokens: this.tokenCounter.count(`Tool Results: ${JSON.stringify(toolResults, null, 2)}`)
-     });
+       tokens: this.tokenCounter.count(`Tool Results: ${toolResultsStr}`)
+     }));
    }
    ```
 
@@ -1364,9 +1720,6 @@ class MCPServerPython:
         # TTL configurations
         self.short_term_ttl = config.get('ttl', {}).get('short_term', 3600)  # 1 hour
         self.working_memory_ttl = config.get('ttl', {}).get('working_memory', 86400)  # 1 day
-        
-        # Tool manager
-        self.tool_manager = ToolManager(config['tools'])
     
     async def process_query(self, user_id: str, query: str, session_id: str) -> Dict[str, Any]:
         """Process a user query through the MCP pipeline."""
@@ -1413,46 +1766,621 @@ class MCPServerPython:
         # Current query (high priority)
         context.append(ContextItem(
             content=f"User: {query}",
-            priority=Priority.HIGH,
+            priority: Priority.HIGH,
             tokens=self.token_counter.count(f"User: {query}")
         ));
         
         # 3. Optimize context to fit token limits
-        optimized_context = await self.contextManager.optimize(context, {
+        optimized_context = await this.contextManager.optimize(context, {
             'max_tokens': 6000,
             'model': user_preferences.get('preferred_model', 'gpt-4')
         });
         
         # 4. Detect and execute tools if needed
-        tool_results = await self.detect_and_execute_tools(query, user_preferences);
+        tool_results = await this.detect_and_execute_tools(query, user_preferences);
         
         # Add tool results to context if any
-        if tool_results:
-            tool_results_str = json.dumps(tool_results, indent=2);
-            optimized_context.append(ContextItem(
-                content=f"Tool Results: {tool_results_str}",
-                priority=Priority.HIGH,
-                tokens=self.token_counter.count(f"Tool Results: {tool_results_str}")
-            ));
+        if (Object.keys(toolResults).length > 0) {
+          const toolResultsStr = JSON.stringify(toolResults, null, 2);
+          optimizedContext.push(ContextItem({
+            content: `Tool Results: ${toolResultsStr}`,
+            priority: Priority.HIGH,
+            tokens: this.tokenCounter.count(`Tool Results: ${toolResultsStr}`)
+          }));
+        }
         
         # 5. Generate response using LLM
-        llm_response = await self.generate_llm_response(
-            this.format_for_llm(optimized_context),
-            user_preferences.get('preferred_model', 'gpt-4')
-        );
+        const llmResponse = await this.llm.complete({
+          prompt: this.contextManager.formatForLLM(optimizedContext),
+          max_tokens: 2000,
+          model: userPreferences.preferredModel || "gpt-4"
+        });
         
         # 6. Update memory layers
-        await self.update_memory_layers(
-            user_id, session_id, query, llm_response, conversation_history
+        await this.update_memory_layers(
+          user_id, session_id, query, llm_response, conversation_history
         );
         
         # 7. Prepare and return response
         return {
-            'response': llm_response,
+            'response': llmResponse,
             'sources': [{'title': info['data'].get('topic', 'Previous Conversation'), 
                         'relevance': info['score']} 
-                        for info in relevant_info]
+                        for info in relevantInfo]
         };
         
     # ... Additional methods would be implemented here
 ```
+
+## User Session & Profile Management
+
+MCP provides robust capabilities for managing user sessions and storing user details across interactions, enabling personalized and consistent experiences over time.
+
+### Session Context Storage
+
+User session management in MCP is primarily handled through the memory layers, with specific approaches for different types of user data:
+
+```javascript
+// Core session management class
+class SessionManager {
+  constructor(memoryManager) {
+    this.memoryManager = memoryManager;
+    this.activeSessions = new Map();
+    this.sessionTimeout = 30 * 60 * 1000; // 30 minutes in milliseconds
+  }
+  
+  async getSession(userId, sessionId) {
+    // First check in-memory cache for active sessions
+    const cachedSession = this.activeSessions.get(sessionId);
+    if (cachedSession && !this.isExpired(cachedSession.lastActivity)) {
+      // Update last activity timestamp
+      cachedSession.lastActivity = Date.now();
+      return cachedSession;
+    }
+    
+    // If not in cache or expired, retrieve from short-term memory
+    const sessionKey = `session:${sessionId}`;
+    const storedSession = await this.memoryManager.retrieve(sessionKey, MemoryType.SHORT_TERM);
+    
+    if (storedSession) {
+      // Create a new session object with current timestamp
+      const session = {
+        ...storedSession,
+        lastActivity: Date.now()
+      };
+      
+      // Store back in cache
+      this.activeSessions.set(sessionId, session);
+      return session;
+    }
+    
+    // If no existing session, create a new one
+    const newSession = {
+      sessionId,
+      userId,
+      createdAt: Date.now(),
+      lastActivity: Date.now(),
+      conversationHistory: [],
+      contextVariables: {}
+    };
+    
+    // Store in cache and short-term memory
+    this.activeSessions.set(sessionId, newSession);
+    await this.memoryManager.store(sessionKey, newSession, MemoryType.SHORT_TERM);
+    
+    return newSession;
+  }
+  
+  async updateSession(sessionId, updates) {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found in active sessions`);
+    }
+    
+    // Update the session with new values
+    Object.assign(session, updates, { lastActivity: Date.now() });
+    
+    // Store updated session in short-term memory
+    const sessionKey = `session:${sessionId}`;
+    await this.memoryManager.store(sessionKey, session, MemoryType.SHORT_TERM);
+    
+    return session;
+  }
+  
+  async endSession(sessionId) {
+    // Remove from active sessions
+    this.activeSessions.delete(sessionId);
+    
+    // Remove from short-term memory
+    const sessionKey = `session:${sessionId}`;
+    await this.memoryManager.forget(sessionKey, MemoryType.SHORT_TERM);
+  }
+  
+  isExpired(timestamp) {
+    return Date.now() - timestamp > this.sessionTimeout;
+  }
+  
+  // Periodically clean up expired sessions
+  startCleanupInterval() {
+    setInterval(() => {
+      for (const [sessionId, session] of this.activeSessions.entries()) {
+        if (this.isExpired(session.lastActivity)) {
+          this.activeSessions.delete(sessionId);
+        }
+      }
+    }, 5 * 60 * 1000); // Run every 5 minutes
+  }
+}
+```
+
+#### Session Identification Strategy
+
+MCP uses a multi-layered approach to identify and track user sessions:
+
+1. **Session IDs**: Unique identifiers generated for each conversation session, typically using UUIDs
+2. **User IDs**: Persistent identifiers for users across sessions
+3. **Authentication Tokens**: For authenticated sessions, these link to user accounts
+
+```javascript
+// Creating a new session example
+function createNewSession(userId, authToken = null) {
+  const sessionId = generateUUID();
+  
+  const session = {
+    sessionId,
+    userId,
+    authToken,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+  };
+  
+  // Store session in Redis with expiration
+  redisClient.set(`session:${sessionId}`, JSON.stringify(session), 'EX', 86400);
+  
+  return sessionId;
+}
+
+// Validating a session example
+async function validateSession(sessionId) {
+  const sessionData = await redisClient.get(`session:${sessionId}`);
+  
+  if (!sessionData) {
+    return null; // Session doesn't exist or expired
+  }
+  
+  const session = JSON.parse(sessionData);
+  
+  // Check if session is expired
+  if (session.expiresAt < Date.now()) {
+    await redisClient.del(`session:${sessionId}`);
+    return null;
+  }
+  
+  // Extend session expiry time on activity
+  session.expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+  await redisClient.set(`session:${sessionId}`, JSON.stringify(session), 'EX', 86400);
+  
+  return session;
+}
+```
+
+### User Profile Persistence
+
+User profiles contain persistent information about users across sessions and are stored using a combination of working and long-term memory.
+
+#### User Data Organization
+
+MCP organizes user data into distinct categories for optimized storage and retrieval:
+
+| Data Type | Storage Location | Update Frequency | Example Data |
+|-----------|-----------------|-----------------|-------------|
+| Core Profile | Working Memory | Low | Name, location, language preferences |
+| Preferences | Working Memory | Medium | UI preferences, notification settings |
+| Conversation History | Short-term Memory | High | Recent messages, active contexts |
+| Learned Preferences | Long-term Memory | Gradual | Topic interests, response style preferences |
+| Usage Patterns | Long-term Memory | Continuous | Common queries, tool usage statistics |
+
+#### Profile Management Implementation
+
+```javascript
+class UserProfileManager {
+  constructor(memoryManager) {
+    this.memoryManager = memoryManager;
+    this.profileCache = new LRUCache({ max: 1000 }); // Cache for active users
+  }
+  
+  async getUserProfile(userId) {
+    // Check cache first
+    if (this.profileCache.has(userId)) {
+      return this.profileCache.get(userId);
+    }
+    
+    // Get core profile from working memory
+    const profileKey = `user:${userId}:profile`;
+    const profile = await this.memoryManager.retrieve(profileKey, MemoryType.WORKING) || {
+      userId,
+      created: Date.now(),
+      preferences: {}
+    };
+    
+    // Get learned preferences from long-term memory
+    const learnedPreferences = await this.memoryManager.retrieve(
+      `user:${userId}:learned_preferences`, 
+      MemoryType.LONG_TERM
+    ) || {};
+    
+    // Combine core profile with learned preferences
+    const fullProfile = {
+      ...profile,
+      learnedPreferences
+    };
+    
+    // Store in cache for faster future access
+    this.profileCache.set(userId, fullProfile);
+    
+    return fullProfile;
+  }
+  
+  async updateUserProfile(userId, updates) {
+    // Get existing profile
+    const profile = await this.getUserProfile(userId);
+    
+    // Apply updates
+    Object.keys(updates).forEach(key => {
+      if (key === 'learnedPreferences') {
+        profile.learnedPreferences = {
+          ...profile.learnedPreferences,
+          ...updates.learnedPreferences
+        };
+      } else {
+        profile[key] = updates[key];
+      }
+    });
+    
+    // Update last modified timestamp
+    profile.lastModified = Date.now();
+    
+    // Store core profile in working memory
+    const profileKey = `user:${userId}:profile`;
+    const coreProfile = { ...profile };
+    delete coreProfile.learnedPreferences;
+    await this.memoryManager.store(profileKey, coreProfile, MemoryType.WORKING);
+    
+    // Store learned preferences in long-term memory
+    await this.memoryManager.store(
+      `user:${userId}:learned_preferences`, 
+      profile.learnedPreferences, 
+      MemoryType.LONG_TERM
+    );
+    
+    // Update cache
+    this.profileCache.set(userId, profile);
+    
+    return profile;
+  }
+  
+  async getProfileAttribute(userId, attribute) {
+    const profile = await this.getUserProfile(userId);
+    
+    if (attribute.startsWith('learned.')) {
+      const learnedAttr = attribute.replace('learned.', '');
+      return profile.learnedPreferences[learnedAttr];
+    }
+    
+    return profile[attribute];
+  }
+  
+  async recordUserInteraction(userId, interaction) {
+    // Extract behavior patterns from interaction
+    const patterns = this.extractPatterns(interaction);
+    
+    // Get current learned preferences
+    const profile = await this.getUserProfile(userId);
+    
+    // Update learned preferences based on patterns
+    const updates = {
+      learnedPreferences: {
+        ...profile.learnedPreferences,
+        ...patterns
+      }
+    };
+    
+    // Apply updates
+    await this.updateUserProfile(userId, updates);
+  }
+  
+  extractPatterns(interaction) {
+    // Pattern extraction logic would analyze the interaction
+    // to detect user preferences, interests, and behaviors
+    
+    const patterns = {};
+    
+    // Example: Detecting preferred response length
+    if (interaction.feedbackPositive && interaction.responseLength > 300) {
+      patterns.preferredResponseLength = 'detailed';
+    } else if (interaction.feedbackPositive && interaction.responseLength < 100) {
+      patterns.preferredResponseLength = 'concise';
+    }
+    
+    // Example: Detecting domain interests
+    if (interaction.query.includes('database') || 
+        interaction.query.includes('SQL')) {
+      patterns.domainInterests = patterns.domainInterests || [];
+      if (!patterns.domainInterests.includes('databases')) {
+        patterns.domainInterests.push('databases');
+      }
+    }
+    
+    return patterns;
+  }
+}
+```
+
+### Multi-Session Management
+
+MCP supports multiple concurrent sessions per user, with efficient tracking and context switching:
+
+```javascript
+class MultiSessionManager {
+  constructor(sessionManager, profileManager) {
+    this.sessionManager = sessionManager;
+    this.profileManager = profileManager;
+    this.userSessions = new Map(); // userId -> Set of sessionIds
+  }
+  
+  async createSession(userId) {
+    // Generate a new session ID
+    const sessionId = generateUUID();
+    
+    // Initialize the session
+    await this.sessionManager.getSession(userId, sessionId);
+    
+    // Track this session for the user
+    if (!this.userSessions.has(userId)) {
+      this.userSessions.set(userId, new Set());
+    }
+    this.userSessions.get(userId).add(sessionId);
+    
+    return sessionId;
+  }
+  
+  async getActiveSessions(userId) {
+    const sessionIds = this.userSessions.get(userId) || new Set();
+    const activeSessions = [];
+    
+    for (const sessionId of sessionIds) {
+      const session = await this.sessionManager.getSession(userId, sessionId);
+      
+      if (session) {
+        activeSessions.push({
+          sessionId,
+          createdAt: session.createdAt,
+          lastActivity: session.lastActivity,
+          topic: this.detectSessionTopic(session)
+        });
+      } else {
+        // Session no longer exists, remove from tracking
+        this.userSessions.get(userId).delete(sessionId);
+      }
+    }
+    
+    return activeSessions;
+  }
+  
+  detectSessionTopic(session) {
+    // Analyze conversation history to determine the main topic
+    if (!session.conversationHistory || session.conversationHistory.length === 0) {
+      return 'New Conversation';
+    }
+    
+    // Simple implementation - use the first user message as the topic
+    const firstUserMessage = session.conversationHistory
+      .find(msg => msg.role === 'user');
+    
+    if (firstUserMessage) {
+      // Truncate to create a reasonable topic title
+      return firstUserMessage.content.substring(0, 50) +
+        (firstUserMessage.content.length > 50 ? '...' : '');
+    }
+    
+    return 'Untitled Conversation';
+  }
+  
+  
+  async switchSession(userId, sessionId) {
+    // Verify the session exists and belongs to the user
+    const sessionIds = this.userSessions.get(userId);
+    if (!sessionIds || !sessionIds.has(sessionId)) {
+      throw new Error(`Session ${sessionId} does not exist for user ${userId}`);
+    }
+    
+    // Get session data
+    const session = await this.sessionManager.getSession(userId, sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} could not be retrieved`);
+    }
+    
+    // Update last activity
+    await this.sessionManager.updateSession(sessionId, {
+      lastActivity: Date.now()
+    });
+    
+    return session;
+  }
+}
+```
+
+### Privacy and Compliance
+
+MCP implements comprehensive privacy and compliance features for user data:
+
+1. **Data Minimization**: Only essential user information is stored
+2. **Automatic Expiry**: TTL (Time-To-Live) for sensitive data
+3. **Anonymization**: Options for anonymized usage patterns
+4. **Access Controls**: Granular permissions for accessing user data
+5. **Compliance Support**: GDPR, CCPA, and other regulatory requirements
+
+```javascript
+class UserDataCompliance {
+  constructor(memoryManager) {
+    this.memoryManager = memoryManager;
+  }
+  
+  async exportUserData(userId) {
+    // Gather all user data across memory layers
+    const userData = {
+      profile: await this.memoryManager.retrieve(`user:${userId}:profile`, MemoryType.WORKING),
+      preferences: await this.memoryManager.retrieve(`user:${userId}:preferences`, MemoryType.WORKING),
+      conversations: await this.getAllUserConversations(userId),
+      learnedPreferences: await this.memoryManager.retrieve(`user:${userId}:learned_preferences`, MemoryType.LONG_TERM)
+    };
+    
+    return userData;
+  }
+  
+  async deleteUserData(userId) {
+    // Delete from working memory
+    await this.memoryManager.forget(`user:${userId}:profile`, MemoryType.WORKING);
+    await this.memoryManager.forget(`user:${userId}:preferences`, MemoryType.WORKING);
+    
+    // Delete conversations
+    const conversations = await this.getAllUserConversations(userId);
+    for (const conversation of conversations) {
+      await this.memoryManager.forget(`conversation:${conversation.id}`, MemoryType.SHORT_TERM);
+    }
+    
+    // Delete from long-term memory
+    await this.memoryManager.forget(`user:${userId}:learned_preferences`, MemoryType.LONG_TERM);
+    
+    // Delete vector embeddings associated with this user
+    await this.deleteUserVectors(userId);
+    
+    return true;
+  }
+  
+  async anonymizeUser(userId) {
+    // Create anonymized version of learned preferences
+    const learnedPreferences = await this.memoryManager.retrieve(
+      `user:${userId}:learned_preferences`,
+      MemoryType.LONG_TERM
+    );
+    
+    if (learnedPreferences) {
+      // Remove any personally identifiable information
+      const anonymized = this.stripPII(learnedPreferences);
+      
+      // Store anonymized version
+      await this.memoryManager.store(
+        `anonymous:learned:${generateUUID()}`,
+        anonymized,
+        MemoryType.LONG_TERM
+      );
+    }
+    
+    // Delete original user data
+    await this.deleteUserData(userId);
+    
+    return true;
+  }
+  
+  // Helper methods
+  async getAllUserConversations(userId) {
+    // Implementation would depend on how conversations are stored
+    // This is a simplified example
+    const keys = await this.memoryManager.findKeys(`conversation:*:${userId}`, MemoryType.SHORT_TERM);
+    const conversations = [];
+    
+    for (const key of keys) {
+      const conversation = await this.memoryManager.retrieve(key, MemoryType.SHORT_TERM);
+      if (conversation) {
+        conversations.push(conversation);
+      }
+    }
+    
+    return conversations;
+  }
+  
+  async deleteUserVectors(userId) {
+    // Implementation would depend on the vector database used
+    // Example using Pinecone
+    await this.memoryManager.vectorDb.delete({
+      filter: { userId: userId }
+    });
+  }
+  
+  stripPII(data) {
+    // Deep clone the data
+    const anonymized = JSON.parse(JSON.stringify(data));
+    
+    // Remove common PII fields
+    const piiFields = ['name', 'email', 'phone', 'address', 'location', 'ip', 'deviceId'];
+    
+    function recursivelyRemovePII(obj) {
+      if (!obj || typeof obj !== 'object') return obj;
+      
+      for (const key in obj) {
+        if (piiFields.includes(key.toLowerCase())) {
+          delete obj[key];
+        } else if (typeof obj[key] === 'object') {
+          recursivelyRemovePII(obj[key]);
+        }
+      }
+      
+      return obj;
+    }
+    
+    return recursivelyRemovePII(anonymized);
+  }
+}
+```
+
+## Conclusion
+
+The Model Context Protocol represents a significant advancement in building intelligent, context-aware AI systems. By providing a standardized approach to context management, token optimization, and memory handling, MCP enables developers to create more efficient, responsive, and personalized AI applications.
+
+### Future Directions
+
+Key areas for future development and enhancement include:
+- Expanding support for additional LLMs and AI frameworks
+- Enhancing memory management capabilities, including automated pruning and summarization
+- Improving integration with external tools and data sources
+- Ongoing optimization of token management strategies
+
+### Community and Support
+
+The success of the Model Context Protocol relies on community engagement and collaboration. Users and developers are encouraged to contribute to the protocol's evolution, share their experiences, and participate in discussions.
+
+## Appendix
+
+### Compatibility Table
+
+| Feature | MCP v1.0 | MCP v1.1 | MCP v2.0 |
+|---------|----------|----------|----------|
+| Context Windows | ✔️ | ✔️ | ✔️ |
+| Token Management | ✔️ | ✔️ | ✔️ |
+| Memory Layers | ✔️ | ✔️ | ✔️ |
+| API Integration | ✔️ | ✔️ | ✔️ |
+| Tool Management | ❌ | ✔️ | ✔️ |
+| User Session Management | ❌ | ❌ | ✔️ |
+
+### Further Reading
+
+- [Understanding GPT-3 Tokenization](https://beta.openai.com/docs/guides/gpt)
+- [AWS DynamoDB Documentation](https://docs.aws.amazon.com/dynamodb/index.html)
+- [Redis In-Memory Data Structure Store](https://redis.io/)
+- [Pinecone Vector Database](https://www.pinecone.io/)
+
+### Glossary of Terms
+
+- **Context Window**: The amount of text (tokens) the model considers at one time.
+- **Token**: A basic unit of text processed by the model, often corresponding to words or word parts.
+- **Memory Layer**: A storage layer for persisting context and data across interactions.
+- **API**: Application Programming Interface, a set of rules for building and interacting with software applications.
+
+### Change Log
+
+| Date | Version | Description |
+|------|---------|-------------|
+| 2023-10-01 | 1.0 | Initial release |
+| 2023-10-15 | 1.1 | Added user session management features |
+| 2023-11-01 | 2.0 | Major update with tool management and enhanced token strategies |
