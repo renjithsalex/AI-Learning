@@ -89,6 +89,43 @@ If a train travels 120 km in 1.5 hours, what is its average speed in km/h?
 """
 ```
 
+### Additional Patterns
+
+- **Persona-Based Prompting**  
+  Assign a detailed persona to shape style and tone.  
+  Example:  
+  ``` 
+  ROLE: You are a scientific journalist specializing in AI ethics.
+  TASK: Write a 200-word summary of the ethical considerations of LLMs.
+  ```
+  Pros: Richer voice. Cons: Risk of over-specification.
+
+- **Instruction vs. Question Framing**  
+  Instructions („List the top 5…“) often yield bullet outputs; questions („What are the top 5…?“) can be more conversational.
+
+- **Multi-Turn Context Preservation**  
+  Use delimiters to maintain history across turns:  
+  ```
+  CONTEXT:
+  <history>
+  {previous Q&A}
+  </history>
+  QUERY: Please continue from above…
+  ```
+
+- **Self-Ask and Decompose**  
+  Prompt the model to break complex queries into sub-questions and answer sequentially:  
+  ```
+  “Decompose the problem into sub-tasks, answer each, then combine the results.”
+  ```
+
+- **Role-Instruction Hybrid**  
+  Merge role-play with explicit steps:  
+  ```
+  YOU: You are a product manager.
+  STEPS: 1) Identify user needs. 2) Propose features.
+  ```
+
 ## Structured Output Generation
 
 ### JSON Response Formatting
@@ -118,6 +155,43 @@ Create a comparison table between PyTorch and TensorFlow with the following crit
 Format as a markdown table.
 """
 ```
+
+### XML Formatting
+
+```xml
+<response>
+  <summary>Short summary here</summary>
+  <details>
+    <point>Key advantage</point>
+    <point>Key limitation</point>
+  </details>
+</response>
+```
+
+### YAML Formatting
+
+```yaml
+summary: "Short summary here"
+details:
+  - "Key advantage"
+  - "Key limitation"
+```
+
+### CSV Output
+
+```csv
+Feature,Description
+Performance,High inference speed
+Accuracy,>95% on benchmarks
+```
+
+### Defining Schemas
+
+- When using a JSON schema, clearly specify field names, types, and constraints in the prompt or via your `response_schema`.  
+- Example prompt snippet:  
+  ```
+  FORMAT: Respond in JSON with keys "title" (string), "rating" (integer 1–5), and "tags" (list of strings).
+  ```
 
 ## Advanced Techniques
 
@@ -185,12 +259,14 @@ greedy_config = types.GenerateContentConfig(temperature=0.0)
 
 ```python
 class SummaryRating(enum.Enum):
-  VERY_GOOD = '5'
-  GOOD = '4'
-  OK = '3'
-  BAD = '2'
-  VERY_BAD = '1'
+  EXCELLENT = '5'
+  GOOD      = '4'
+  AVERAGE   = '3'
+  POOR      = '2'
+  FAIL      = '1'
+```
 
+```python
 def eval_summary(prompt, ai_response):
   """Evaluate the generated summary against the prompt used."""
   chat = client.chats.create(model='gemini-2.0-flash')
@@ -213,6 +289,34 @@ def eval_summary(prompt, ai_response):
   structured_eval = response.parsed
 
   return verbose_eval, structured_eval
+```
+
+#### What is Rubric-Based Assessment?
+- A systematic method using predefined criteria and scales to evaluate AI outputs.
+- Each criterion (e.g., relevance, clarity, factuality) is scored on a consistent scale.
+
+#### Steps to Create a Rubric:
+1. Define criteria (e.g., Accuracy, Completeness, Style).  
+2. Assign a scale (e.g., 1–5) and weight for each.  
+3. Provide descriptions for each score level.  
+4. Combine into a JSON or table for structured evaluation.
+
+#### Example Rubric Structure
+
+```json
+{
+  "criteria": [
+    {"name":"Accuracy","scale":5,"description":["Incorrect","Partially correct", "...","Fully correct"]},
+    {"name":"Clarity","scale":5,"description":["Unclear","Somewhat unclear", "...","Crystal clear"]},
+    {"name":"Completeness","scale":5,"description":["Missing key points","Partially complete", "...","Comprehensive"]}
+  ]
+}
+```
+
+#### Using Rubrics in Prompts
+```
+EVALUATION_RUBRIC: Use the JSON rubric above.  
+TASK: Evaluate the AI summary and assign scores for each criterion.
 ```
 
 ### Comparative Evaluation
