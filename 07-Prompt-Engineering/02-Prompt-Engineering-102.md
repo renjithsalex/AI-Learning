@@ -453,27 +453,409 @@ def build_rag_chatbot():
     return answer_query
 ```
 
+## Troubleshooting Common Issues
+
+### Handling Hallucinations
+
+Hallucinations occur when models generate information that appears plausible but is factually incorrect or fabricated.
+
+#### Prevention Strategies:
+
+1. **Explicit Instructions**: Direct the model not to speculate
+   ```
+   CONSTRAINT: Only use information from the provided context. If you don't know or are uncertain, say "I don't have enough information."
+   ```
+
+2. **Source Attribution**: Ask the model to cite its sources
+   ```
+   FORMAT: For each claim in your response, indicate the source (document name, page number) or state that it's a general explanation not tied to a specific source.
+   ```
+
+3. **RAG Implementation**: Provide authoritative information in the context
+
+#### Detection Methods:
+
+1. **Consistency Checking**: Compare outputs across multiple runs
+2. **External Verification**: Validate key facts against trusted sources
+3. **Confidence Scoring**: Ask the model to rate its confidence in each statement
+
+### Handling Sensitive Topics
+
+When models refuse to respond due to safety filters:
+
+1. **Clarify Intent**: Explain the legitimate purpose behind your request
+2. **Reframe Questions**: Ask for educational information rather than "how to" guides
+3. **Use Professional Terminology**: Frame requests using academic or professional language
+
+Example:
+```
+CONTEXT: I am a cybersecurity professional creating educational material for a company training session.
+TASK: Explain common password vulnerabilities and how they are exploited, focusing on educational awareness rather than actual attack methods.
+```
+
+### Overcoming Length Limitations
+
+1. **Chunking Strategy**: Break long tasks into smaller, manageable requests
+   ```
+   INSTRUCTION: This is part 1 of 3. Generate the introduction and first section only.
+   ```
+
+2. **Summarization**: Request condensed answers when hitting limits
+   ```
+   CONSTRAINT: If you find you're reaching the response limit, summarize remaining points briefly rather than cutting off mid-response.
+   ```
+
+3. **Format Optimization**: Use concise formats like bullets, tables, or lists
+
+### Refining Unstructured Outputs
+
+When responses lack structure or formatting:
+
+1. **Format Templates**: Provide explicit templates
+   ```
+   FORMAT TEMPLATE:
+   # [Title]
+   ## Summary
+   [1-2 sentence summary]
+   ## Key Points
+   1. [Point 1]
+   2. [Point 2]
+   3. [Point 3]
+   ## Conclusion
+   [Brief conclusion]
+   ```
+
+2. **Staged Generation**: Request formatting as a second step
+   ```
+   FOLLOW-UP: Please reformat your response as a structured markdown document with headings, bullet points, and code blocks.
+   ```
+
+## Team Exercises
+
+### Exercise 1: Prompt Battle
+
+**Duration**: 30 minutes
+**Participants**: Teams of 2-3
+
+**Instructions**:
+1. Each team receives the same task (e.g., "Create a data analysis plan for customer churn prediction")
+2. Teams independently craft prompts for the task
+3. Submit prompts to the same model
+4. Compare and vote on the most effective outputs
+5. Analyze what made the winning prompt successful
+
+**Evaluation Criteria**:
+- Completeness of output
+- Structure and clarity
+- Accuracy of information
+- Actionability of recommendations
+
+### Exercise 2: Prompt Iteration Challenge
+
+**Duration**: 45 minutes
+**Participants**: Individual or pairs
+
+**Instructions**:
+1. Start with a basic prompt for a complex task
+2. Run the prompt and identify shortcomings in the output
+3. Iterate and enhance the prompt through 3-5 revisions
+4. Document each iteration with:
+   - Changes made to the prompt
+   - Improvements observed in the output
+   - Reasoning behind the changes
+5. Present the evolution and final prompt
+
+**Example Task**: "Create a risk assessment framework for AI systems in healthcare"
+
+### Exercise 3: Specialized Domain Adaptation
+
+**Duration**: 60 minutes
+**Participants**: Teams of 3-4
+
+**Instructions**:
+1. Each team selects a specialized domain (e.g., law, medicine, finance)
+2. Research domain-specific terminology, frameworks, and best practices
+3. Develop a set of prompt templates for common tasks in that domain
+4. Include examples of:
+   - Role definitions appropriate for the domain
+   - Domain-specific constraints
+   - Formatting conventions
+   - Evaluation criteria
+5. Test prompts and share results
+
+**Deliverables**:
+- Domain-specific prompt template library
+- Examples of successful and unsuccessful prompts
+- Recommendations for domain adaptation
+
+### Exercise 4: RAG System Implementation
+
+**Duration**: 90 minutes
+**Participants**: Teams of 3-5
+
+**Instructions**:
+1. Provide teams with a corpus of documents on a specific topic
+2. Challenge teams to build a simple RAG system that can:
+   - Process and index the documents
+   - Retrieve relevant information based on queries
+   - Generate accurate responses with source attribution
+3. Test the system with a set of standard questions
+4. Evaluate based on accuracy, relevance, and source traceability
+
+**Technical Components**:
+```python
+# Sample RAG Implementation Structure
+def build_simple_rag():
+    # 1. Document Loading
+    loader = DirectoryLoader("./data/")
+    documents = loader.load()
+    
+    # 2. Text Splitting
+    text_splitter = RecursiveCharacterTextSplitter()
+    chunks = text_splitter.split_documents(documents)
+    
+    # 3. Embedding
+    embedding_model = SentenceTransformerEmbeddings()
+    
+    # 4. Vector Store
+    vectorstore = Chroma.from_documents(chunks, embedding_model)
+    
+    # 5. Retriever
+    retriever = vectorstore.as_retriever()
+    
+    # 6. Generation with Context
+    def generate_answer(query):
+        docs = retriever.get_relevant_documents(query)
+        context = "\n\n".join([doc.page_content for doc in docs])
+        
+        prompt = f"""
+        Answer the following question based only on the provided context:
+        
+        Context:
+        {context}
+        
+        Question:
+        {query}
+        """
+        
+        response = llm.predict(prompt)
+        return response, docs
+    
+    return generate_answer
+```
+
+## Case Studies
+
+### Case Study 1: Financial Report Analysis
+
+**Business Challenge**: Analyze quarterly financial reports to extract key insights.
+
+**Prompt Evolution**:
+
+Initial Prompt:
+```
+Analyze this financial report and give me the highlights.
+```
+
+Refined Prompt:
+```
+ROLE: You are a financial analyst with expertise in quarterly financial reporting.
+TASK: Analyze the attached Q3 2023 financial report for Acme Corporation.
+FOCUS AREAS:
+1. Revenue changes compared to Q2 2023 and Q3 2022
+2. Major shifts in expense categories
+3. Changes in profit margin
+4. Unusual items or one-time events affecting results
+5. Cash flow status and trends
+
+FORMAT: Structure your analysis with clear headings, bullet points for key metrics, and a brief executive summary at the beginning. Include a "Key Concerns" and "Opportunities" section.
+
+CONSTRAINTS: Focus only on factual information from the report. Avoid speculation about future performance unless explicitly mentioned in the outlook section of the report.
+```
+
+**Outcome**: The refined prompt produced a structured analysis with consistent formatting, focused on the most business-critical information, and highlighted actionable insights that the initial prompt missed.
+
+### Case Study 2: Customer Support Automation
+
+**Business Challenge**: Improve accuracy and helpfulness of an AI customer support system.
+
+**RAG Implementation**:
+
+```python
+def customer_support_rag(query, customer_context=None):
+    """
+    Enhanced customer support RAG system with:
+    1. Product knowledge base retrieval
+    2. Customer context awareness
+    3. Conversational memory
+    4. Support policy compliance
+    """
+    # Retrieve relevant product documentation
+    product_docs = product_retriever.get_relevant_documents(query)
+    
+    # Retrieve relevant support policies
+    policy_docs = policy_retriever.get_relevant_documents(query)
+    
+    # Format all context
+    context = format_documents(product_docs, policy_docs)
+    
+    # Add customer context if available
+    if customer_context:
+        context += f"\nCUSTOMER CONTEXT:\n{customer_context}"
+    
+    prompt = f"""
+    ROLE: You are a helpful, accurate customer support assistant for Acme Corporation.
+    
+    CONTEXT:
+    {context}
+    
+    CUSTOMER QUERY:
+    {query}
+    
+    GUIDELINES:
+    1. Answer based ONLY on the provided context
+    2. If you need more information from the customer, ask clear questions
+    3. For technical issues beyond basic troubleshooting, offer to connect with a human agent
+    4. Always maintain a friendly, helpful tone
+    5. Format your response with proper spacing and organization
+    6. If you mention a policy, explain it in simple terms
+    
+    Your response:
+    """
+    
+    return generate_response(prompt)
+```
+
+**Outcome**: The system reduced escalations to human agents by 37%, improved customer satisfaction scores, and maintained 96% factual accuracy based on human evaluation.
+
+## Evaluation Methods (Expanded)
+
+### Automatic Evaluation Frameworks
+
+```python
+def evaluate_prompt_effectiveness(prompt_variants, test_cases):
+    """
+    Systematically evaluate prompt variants against test cases.
+    """
+    results = {}
+    
+    for variant_name, prompt_template in prompt_variants.items():
+        variant_results = []
+        
+        for test_case in test_cases:
+            # Fill in the prompt template with test case
+            filled_prompt = prompt_template.format(**test_case)
+            
+            # Generate model response
+            response = generate_model_response(filled_prompt)
+            
+            # Apply evaluation metrics
+            metrics = calculate_metrics(response, test_case["expected_output"])
+            
+            variant_results.append({
+                "test_case": test_case["name"],
+                "metrics": metrics,
+                "response": response
+            })
+        
+        # Aggregate results for this variant
+        results[variant_name] = {
+            "individual_results": variant_results,
+            "average_metrics": calculate_average_metrics(variant_results)
+        }
+    
+    # Determine best performing variant
+    best_variant = find_best_variant(results)
+    
+    return {
+        "detailed_results": results,
+        "best_variant": best_variant,
+        "comparison_chart": generate_comparison_chart(results)
+    }
+```
+
+### Human-in-the-Loop Evaluation
+
+For subjective quality assessment:
+
+1. **Expert Review Process**:
+   - Define clear evaluation criteria 
+   - Create standardized rating scales
+   - Use blind testing (reviewers don't know which prompt generated which output)
+   - Calculate inter-rater reliability
+
+2. **A/B Testing Framework**:
+   ```
+   [User sees either output A or B]
+   
+   QUESTION: How helpful was this response?
+   SCALE: 1 (Not helpful) to 5 (Extremely helpful)
+   
+   FOLLOW-UP: What would make this response more useful?
+   [Free text field]
+   ```
+
+3. **Progressive User Testing**:
+   - Start with internal testers familiar with the domain
+   - Expand to representative user samples
+   - Implement wider production A/B testing with metrics tracking
+
 ## Resources & Further Learning
 
-### Recommended Reading
+### Advanced Tools
 
-1. [Google AI: Introduction to Prompt Design](https://ai.google.dev/docs/prompt-design)
-2. [Evaluating Large Language Models](https://services.google.com/fh/files/blogs/neurips_evaluation.pdf)
-3. [Prompt Engineering Guide](https://www.promptingguide.ai/)
+1. **LangChain** - Framework for building LLM applications
+   - [Official Documentation](https://python.langchain.com/docs/get_started/introduction)
+   - Key features: Prompt templates, output parsers, agents, memory systems
 
-### Useful Tools
+2. **Weights & Biases** - Experiment tracking for prompt engineering
+   - [Prompt Management Guide](https://wandb.ai/site/articles/prompt-engineering-management-tracking)
+   - Enables tracking prompt versions, parameters, and performance metrics
 
-1. **AI Studio**: Test and refine prompts interactively
-2. **LangChain**: Framework for developing applications with LLMs
-3. **NotebookLM**: Interactive document analysis with LLMs
+3. **Promptfoo** - Open-source evaluation framework
+   - [GitHub Repository](https://github.com/promptfoo/promptfoo)
+   - Supports automated testing of prompt variations against test cases
 
-### Practice Exercises
+4. **LMQL** - Domain-specific language for LLM interactions
+   - [Official Website](https://lmql.ai/)
+   - Enables constrained generation and advanced control flow
 
-1. Take an existing prompt and optimize it using 3 different techniques
-2. Create a prompt that generates consistently structured JSON output
-3. Develop a RAG system for a specific knowledge domain
-4. Implement an evaluation framework for comparing prompt effectiveness
+### Communities and Learning Resources
+
+1. **Prompt Engineering Community**
+   - [Discord Server](https://discord.gg/promptengineering)
+   - Regular discussions, challenges, and shared resources
+
+2. **Online Courses**
+   - [Prompt Engineering for Developers](https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/)
+   - [Advanced RAG Techniques](https://www.pinecone.io/learn/series/langchain/)
+
+3. **Research Papers**
+   - "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models" (Wei et al., 2022)
+   - "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (Lewis et al., 2021)
+   - "Constitutional AI: Harmlessness from AI Feedback" (Anthropic, 2022)
+
+4. **Interactive Playgrounds**
+   - [Google AI Studio](https://ai.google.dev/)
+   - [OpenAI Playground](https://platform.openai.com/playground)
+   - [Anthropic Claude Console](https://console.anthropic.com/)
+
+## Further Practice: Prompt Engineering Challenges
+
+1. **Multi-Modal Prompt Design**:
+   Create prompts that effectively combine text instructions with image inputs
+
+2. **Adversarial Testing**:
+   Develop prompts specifically designed to test model limitations and boundaries
+
+3. **Cross-Model Optimization**:
+   Design prompts that work consistently across different LLM providers
+
+4. **Prompt Compression**:
+   Experiment with techniques to reduce prompt token count while maintaining effectiveness
+
+5. **Tool-Using Agents**:
+   Design prompts that effectively instruct models to use external tools and APIs
 
 ---
 
-*This guide was created as part of the Google Gen AI Intensive course materials. Last updated: May 2025.*
