@@ -1,6 +1,6 @@
 # How to Get LLMs to Do What You Want
 
-![LLM Prompt Engineering](https://images.unsplash.com/photo-1526378800651-c32d170fe6f8?q=80&w=1200)
+![LLM Prompt Engineering](https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1200)
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -164,4 +164,3 @@ If you have any questions, pop them in the [GitHub Community thread](https://git
 
 ---
 
-*Last updated: August 2024*
