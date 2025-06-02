@@ -1,5 +1,3 @@
-// ...existing code...
-
 ## 🔄 **Code Generation Paradigms: Beyond FIM (Fill-In-the-Middle)**
 
 ### **🎯 Fill-In-the-Middle (FIM) - The Foundation**
@@ -563,4 +561,3 @@ def ensure_iso13485_compliance(device_data: MedicalDeviceData) -> ComplianceResu
 
 These paradigms represent the evolution of code generation beyond simple completion, moving toward more intelligent, context-aware, and domain-specific code generation systems.
 
-// ...existing code...
